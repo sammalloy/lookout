@@ -1,0 +1,14 @@
+server: http://localhost:4400
+baseBranch: main
+projects:
+  - name: design-system
+    storybook: storybook-static
+modes:
+  viewports:
+    - { name: desktop, width: 1280, height: 400 }
+    - { name: mobile, width: 375, height: 400 }
+  themes: [light, dark]
+reviewers:
+  default: ["@design-system-team"]
+  groups:
+    design-system-team: [sam]

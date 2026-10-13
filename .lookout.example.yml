@@ -1,0 +1,48 @@
+# Copy to .lookout.yml at the root of your repo.
+
+# Where the Lookout server runs. LOOKOUT_SERVER overrides this in CI.
+server: http://localhost:4400
+
+# Builds on this branch become baselines automatically.
+baseBranch: main
+autoAcceptOnBaseBranch: true
+
+# One entry per Storybook build. Paths are relative to this file.
+projects:
+  - name: design-system
+    storybook: packages/ui/storybook-static
+  # - name: checkout
+  #   storybook: apps/checkout/storybook-static
+
+# Every story is captured once per mode: viewports x themes.
+modes:
+  viewports:
+    - { name: desktop, width: 1280, height: 800 }
+    - { name: mobile, width: 375, height: 812 }
+  themes: [light, dark]
+  themeGlobal: theme          # the Storybook global your theme decorator reads
+
+diffThreshold: 0.1            # per-pixel colour tolerance (0 strict .. 1 loose)
+concurrency: 4                # parallel browser pages
+
+reviewers:
+  default: ["@design-system-team"]
+  groups:
+    design-system-team: [alice, bob]
+  rules:
+    - match: "design-system/Components/Button/**"
+      reviewers: [alice]
+    - match: "checkout/**"
+      reviewers: [carol]
+
+approval:
+  minimum: 1
+  perRule: true
+  dismissOnNewChanges: true
+
+bitbucket:
+  kind: cloud                 # cloud | datacenter
+  workspace: acme             # Data Center: project key
+  repo: frontend
+  # baseUrl: https://bitbucket.example.com   # Data Center only
+  statuses: [visual, review]  # which statuses Lookout posts

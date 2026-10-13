@@ -1,0 +1,9 @@
+{
+  "name": "@lookout/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@lookout/core": "0.1.0"
+  }
+}

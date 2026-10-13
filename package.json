@@ -1,0 +1,19 @@
+{
+  "name": "lookout",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted visual testing and UI review for Storybook, with Bitbucket merge gating.",
+  "workspaces": ["packages/*"],
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "server": "node --disable-warning=ExperimentalWarning packages/server/src/main.ts",
+    "lookout": "node packages/cli/src/main.ts",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/pngjs": "^6.0.5",
+    "typescript": "5.9.3"
+  }
+}

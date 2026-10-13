@@ -1,0 +1,12 @@
+{
+  "name": "@lookout/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "yaml": "^2.8.1"
+  }
+}

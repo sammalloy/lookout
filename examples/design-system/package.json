@@ -1,0 +1,19 @@
+{
+  "name": "example-design-system",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build -o storybook-static"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@storybook/react-vite": "9.1.21",
+    "@vitejs/plugin-react": "4.7.0",
+    "storybook": "9.1.21",
+    "vite": "6.4.4"
+  }
+}

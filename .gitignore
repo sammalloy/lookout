@@ -1,0 +1,4 @@
+node_modules/
+.lookout-data/
+storybook-static/
+*.log
