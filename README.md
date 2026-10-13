@@ -86,6 +86,32 @@ export const Loading = {
 };
 ```
 
+### Only capture what changed (`onlyChanged`)
+
+Off by default. Turn it on to skip stories a change can't affect, like Chromatic's TurboSnap:
+
+```yaml
+onlyChanged:
+  enabled: true
+  fullRebuildOn:                # changes here capture everything (these are the defaults)
+    - "**/package.json"
+    - "**/package-lock.json"
+    - "**/yarn.lock"
+    - "**/pnpm-lock.yaml"
+    - "**/.lookout.yml"
+```
+
+Or per run: `lookout run --only-changed`, and `--all` to force a full capture.
+
+How it works:
+
+1. Build Storybook with `storybook build --stats-json`, which writes `preview-stats.json` (the module graph).
+2. Lookout asks the server for the last finished build of this branch (or of the base branch for a new PR) and runs `git diff` against that build's commit, including uncommitted and untracked files.
+3. From each changed file it follows importers up to story files. Only those stories are captured; every other snapshot is copied from the last build and still compared and shown, marked "reused".
+4. It captures everything when it can't be sure: no stats file, no earlier build, the earlier commit missing from git history, a change under `.storybook/` or to anything `.storybook/preview` imports (global CSS, tokens), or a file matching `fullRebuildOn`.
+
+In the monorepo, an app whose Storybook imports the design system from source picks up design-system changes automatically: change `Button.tsx` and the app stories that use Button are captured too. If a project's Storybook is built from a folder other than the parent of its output directory, set `root` on the project.
+
 Lookout waits for Storybook to finish rendering (including `play` functions), web fonts, and network idle, disables CSS animations, and retakes a screenshot until two consecutive shots match.
 
 ## How baselines work
@@ -131,6 +157,5 @@ Today every app lives in the same repo, so one pipeline builds each Storybook an
 - Sign-in: reviewers type their Bitbucket username. Next step is Bitbucket OAuth so approvals are tied to real accounts.
 - S3 / Postgres storage for running as a shared team service (the storage and database are behind small interfaces).
 - Code Insights report in the PR sidebar, and auto-adding Lookout reviewers to the Bitbucket PR.
-- Only re-capturing stories affected by the change (TurboSnap-style).
 - Cross-repo impact via preview packages, for when apps leave the monorepo.
 - Accessibility checks, Slack notifications, Firefox/WebKit.

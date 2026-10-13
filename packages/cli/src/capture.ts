@@ -9,6 +9,7 @@ export interface StoryEntry {
   id: string;
   title: string;
   name: string;
+  importPath?: string;
 }
 
 export interface Shot {
@@ -29,7 +30,7 @@ export function readStoryIndex(storybookDir: string): StoryEntry[] {
   const entries = Object.values(index.entries ?? index.stories ?? {}) as any[];
   return entries
     .filter(e => (e.type ?? 'story') === 'story')
-    .map(e => ({ id: e.id, title: e.title, name: e.name }));
+    .map(e => ({ id: e.id, title: e.title, name: e.name, importPath: e.importPath }));
 }
 
 function storyUrl(base: string, storyId: string, mode: Mode): string {
@@ -108,16 +109,19 @@ export interface CaptureOptions {
   storybookDir: string;
   config: LookoutConfig;
   onShot: (shot: Shot) => Promise<void>;
-  filter?: (story: StoryEntry) => boolean;
+  /** Return false to skip a story in a mode (used by onlyChanged). */
+  filter?: (story: StoryEntry, mode: Mode) => boolean;
 }
 
 export async function captureStorybook({ storybookDir, config, onShot, filter }: CaptureOptions) {
-  const stories = readStoryIndex(storybookDir).filter(s => !filter || filter(s));
+  const stories = readStoryIndex(storybookDir);
   const { url, server } = await serveDir(storybookDir);
   let browser: Browser | undefined;
   try {
     browser = await chromium.launch({ executablePath: process.env.LOOKOUT_CHROMIUM_PATH || undefined });
-    const tasks = stories.flatMap(story => config.modes.map(mode => ({ story, mode })));
+    const tasks = stories
+      .flatMap(story => config.modes.map(mode => ({ story, mode })))
+      .filter(t => !filter || filter(t.story, t.mode));
     let next = 0;
     const counts = { captured: 0, skipped: 0, errors: 0 };
     const worker = async () => {
@@ -139,7 +143,7 @@ export async function captureStorybook({ storybookDir, config, onShot, filter }:
       await context.close();
     };
     await Promise.all(Array.from({ length: Math.max(1, config.concurrency) }, worker));
-    return { stories: stories.length, ...counts };
+    return { stories: stories.length, tasks: tasks.length, ...counts };
   } finally {
     await browser?.close();
     server.close();

@@ -25,6 +25,17 @@ modes:
 diffThreshold: 0.1            # per-pixel colour tolerance (0 strict .. 1 loose)
 concurrency: 4                # parallel browser pages
 
+# Only capture stories affected by changes since the last build (TurboSnap-style).
+# Needs `storybook build --stats-json`. Off unless enabled; `lookout run --all` forces everything.
+onlyChanged:
+  enabled: false
+  fullRebuildOn:
+    - "**/package.json"
+    - "**/package-lock.json"
+    - "**/yarn.lock"
+    - "**/pnpm-lock.yaml"
+    - "**/.lookout.yml"
+
 reviewers:
   default: ["@design-system-team"]
   groups:

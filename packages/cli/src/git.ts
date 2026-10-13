@@ -25,3 +25,23 @@ export function detectGit(): GitInfo {
     baseBranch: env.BITBUCKET_PR_DESTINATION_BRANCH || undefined,
   };
 }
+
+export function repoRoot(): string | null {
+  return git('rev-parse', '--show-toplevel') || null;
+}
+
+/**
+ * Files changed between `base` and the working tree (committed, staged, unstaged and
+ * untracked), relative to the repo root. Returns null if `base` isn't in local history,
+ * e.g. in a shallow CI clone.
+ */
+export function changedFilesSince(base: string): string[] | null {
+  try {
+    execFileSync('git', ['cat-file', '-e', `${base}^{commit}`], { stdio: 'ignore' });
+  } catch {
+    return null;
+  }
+  const diff = git('diff', '--name-only', base);
+  const untracked = git('ls-files', '--others', '--exclude-standard', '--full-name', ':/');
+  return [...new Set([...diff.split('\n'), ...untracked.split('\n')].filter(Boolean))];
+}

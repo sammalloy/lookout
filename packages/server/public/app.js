@@ -251,7 +251,7 @@ function storyCard(s) {
   return `<div class="card">
     <div class="card-head">
       <h3>${esc(s.name)}</h3><span class="muted">${esc(s.mode)}</span>${badge(s.state)}
-      <span class="muted" style="font-size:12px">${s.decidedBy ? `by ${esc(s.decidedBy)}` : ''}${pct}</span>
+      <span class="muted" style="font-size:12px">${s.decidedBy ? `by ${esc(s.decidedBy)}` : ''}${pct}${s.inherited ? ' · reused, not affected by this change' : ''}</span>
       <span class="spacer"></span>${tabs}${actions}
     </div>
     <div class="card-body">${body}

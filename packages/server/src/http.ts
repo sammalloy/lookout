@@ -88,7 +88,21 @@ export function createApp(lookout: Lookout, storage: Storage, opts: { token?: st
     return { ok: true };
   });
 
-  route('POST', '/api/builds/:id/finalize', async (_req, p) => lookout.finalize(Number(p.id)));
+  route('GET', '/api/builds/last', (_req, _p, url) => {
+    const q = url.searchParams;
+    const project = q.get('project');
+    const branch = q.get('branch');
+    if (!project || !branch) throw new HttpError(400, 'project and branch are required');
+    return lookout.lastBuild(project, branch, q.get('baseBranch') ?? branch);
+  });
+
+  route('POST', '/api/builds/:id/finalize', async (req, p) => {
+    const b = await json(req);
+    if (b.inherit?.fromBuild) {
+      lookout.inheritSnapshots(Number(p.id), Number(b.inherit.fromBuild), b.inherit.snapshots ?? []);
+    }
+    return lookout.finalize(Number(p.id));
+  });
 
   // Review app API.
   route('GET', '/api/reviews', () => lookout.listReviews());

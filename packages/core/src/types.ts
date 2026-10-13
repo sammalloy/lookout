@@ -31,6 +31,15 @@ export interface ProjectConfig {
   name: string;
   /** Path to a built Storybook (the output of `storybook build`). */
   storybook: string;
+  /** Directory Storybook is built from (holds .storybook/). Defaults to the parent of `storybook`. */
+  root: string;
+}
+
+export interface OnlyChangedConfig {
+  /** Only capture stories affected by files changed since the baseline build (TurboSnap-style). */
+  enabled: boolean;
+  /** Globs, relative to the repo root, that force capturing every story when changed. */
+  fullRebuildOn: string[];
 }
 
 export type BitbucketKind = 'cloud' | 'datacenter';
@@ -54,6 +63,7 @@ export interface LookoutConfig {
   modes: Mode[];
   diffThreshold: number;
   concurrency: number;
+  onlyChanged: OnlyChangedConfig;
   review: ReviewConfig;
   bitbucket?: BitbucketConfig;
 }

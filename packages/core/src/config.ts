@@ -8,6 +8,15 @@ const DEFAULT_MODES: Mode[] = [
   { name: 'mobile', viewport: { name: 'mobile', width: 375, height: 812 }, globals: {} },
 ];
 
+/** Dependency and lockfile changes can affect any story but don't show up in the module graph. */
+const DEFAULT_FULL_REBUILD_ON = [
+  '**/package.json',
+  '**/package-lock.json',
+  '**/yarn.lock',
+  '**/pnpm-lock.yaml',
+  '**/.lookout.yml',
+];
+
 const DEFAULT_REVIEW: ReviewConfig = {
   default: [],
   rules: [],
@@ -45,13 +54,17 @@ export function normalizeConfig(raw: any, baseDir = process.cwd()): LookoutConfi
     server: process.env.LOOKOUT_SERVER ?? raw.server ?? 'http://localhost:4400',
     baseBranch: raw.baseBranch ?? 'main',
     autoAcceptOnBaseBranch: raw.autoAcceptOnBaseBranch ?? true,
-    projects: (raw.projects ?? []).map((p: any) => ({
-      name: String(p.name),
-      storybook: resolve(baseDir, String(p.storybook)),
-    })),
+    projects: (raw.projects ?? []).map((p: any) => {
+      const storybook = resolve(baseDir, String(p.storybook));
+      return { name: String(p.name), storybook, root: p.root ? resolve(baseDir, String(p.root)) : dirname(storybook) };
+    }),
     modes: buildModes(raw.modes),
     diffThreshold: raw.diffThreshold ?? 0.1,
     concurrency: raw.concurrency ?? 4,
+    onlyChanged: {
+      enabled: typeof raw.onlyChanged === 'object' ? (raw.onlyChanged.enabled ?? true) : raw.onlyChanged === true,
+      fullRebuildOn: raw.onlyChanged?.fullRebuildOn ?? DEFAULT_FULL_REBUILD_ON,
+    },
     review: {
       default: review.default ?? [],
       rules: review.rules ?? [],

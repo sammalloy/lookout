@@ -36,7 +36,19 @@ export class LookoutClient {
     return this.call('PUT', `/api/builds/${buildId}/snapshots?${q}`, shot.png ? new Uint8Array(shot.png) : '', 'image/png');
   }
 
-  finalize(buildId: number) {
-    return this.call<{ counts: Record<string, number>; url: string }>('POST', `/api/builds/${buildId}/finalize`);
+  lastBuild(project: string, branch: string, baseBranch: string) {
+    const q = new URLSearchParams({ project, branch, baseBranch });
+    return this.call<{
+      build: { id: number; commit: string; branch: string } | null;
+      snapshots: Array<{ storyId: string; mode: string; state: string }>;
+    }>('GET', `/api/builds/last?${q}`);
+  }
+
+  finalize(buildId: number, inherit?: { fromBuild: number; snapshots: Array<{ storyId: string; mode: string }> }) {
+    return this.call<{ counts: Record<string, number>; inherited: number; url: string }>(
+      'POST',
+      `/api/builds/${buildId}/finalize`,
+      JSON.stringify(inherit ? { inherit } : {}),
+    );
   }
 }

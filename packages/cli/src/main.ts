@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { loadConfig } from '@lookout/core';
-import { captureStorybook } from './capture.ts';
 import { LookoutClient } from './client.ts';
+import { runProject } from './run.ts';
 import { detectGit } from './git.ts';
 
 const HELP = `lookout: visual tests for Storybook
@@ -18,6 +18,9 @@ Options:
   --storybook <dir>    built Storybook directory (capture)
   --server <url>       Lookout server (default from config or LOOKOUT_SERVER)
   --branch, --commit, --pr, --base   override git / Bitbucket Pipelines detection
+  --only-changed       only capture stories affected by changes since the last build
+                       (TurboSnap-style; needs \`storybook build --stats-json\`)
+  --all                capture every story even if onlyChanged is on in the config
   --exit-code          exit 1 when changes need review or captures failed
 `;
 
@@ -33,6 +36,8 @@ const { positionals, values } = parseArgs({
     pr: { type: 'string' },
     base: { type: 'string' },
     'exit-code': { type: 'boolean', default: false },
+    'only-changed': { type: 'boolean' },
+    all: { type: 'boolean', default: false },
     help: { type: 'boolean', short: 'h' },
   },
 });
@@ -57,7 +62,8 @@ if (command === 'capture') {
     console.error('capture needs --project and --storybook');
     process.exit(1);
   }
-  projects = [{ name: values.project, storybook: resolve(values.storybook) }];
+  const storybook = resolve(values.storybook);
+  projects = [{ name: values.project, storybook, root: dirname(storybook) }];
 } else if (values.project) {
   projects = projects.filter(p => p.name === values.project);
 }
@@ -71,27 +77,19 @@ let needsReview = 0;
 let failed = 0;
 let reviewUrl = '';
 
+const onlyChanged = !values.all && (values['only-changed'] ?? config.onlyChanged.enabled);
+
 for (const project of projects) {
-  const started = Date.now();
-  const build = await client.createBuild({ project: project.name, branch, baseBranch, commit, prId, config });
-  reviewUrl = build.url;
-  console.log(`[${project.name}] build ${build.id} on ${branch}@${commit.slice(0, 8)}${prId ? ` (PR ${prId})` : ''}`);
-  const result = await captureStorybook({
-    storybookDir: project.storybook,
+  const summary = await runProject({
+    project,
     config,
-    onShot: async shot => {
-      if (shot.error) console.warn(`  ! ${shot.story.id} [${shot.mode.name}]: ${shot.error}`);
-      await client.uploadShot(build.id, shot);
-    },
+    client,
+    git: { branch, baseBranch, commit, prId },
+    onlyChanged,
   });
-  const summary = await client.finalize(build.id);
-  const c = summary.counts;
-  needsReview += (c.new ?? 0) + (c.changed ?? 0);
-  failed += c.error ?? 0;
-  console.log(
-    `[${project.name}] ${result.stories} stories, ${result.captured} snapshots in ${((Date.now() - started) / 1000).toFixed(1)}s: ` +
-      Object.entries(c).map(([k, v]) => `${v} ${k}`).join(', '),
-  );
+  reviewUrl = summary.reviewUrl;
+  needsReview += (summary.counts.new ?? 0) + (summary.counts.changed ?? 0);
+  failed += summary.counts.error ?? 0;
 }
 
 console.log(`\nReview: ${reviewUrl}`);

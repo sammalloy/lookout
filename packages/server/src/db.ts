@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
   decided_at TEXT,
   error TEXT,
   diff_threshold REAL,
+  inherited INTEGER NOT NULL DEFAULT 0,
   UNIQUE(build_id, story_id, mode)
 );
 
