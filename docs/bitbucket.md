@@ -15,7 +15,7 @@ definitions:
         caches: [node]
         script:
           - npm ci
-          - npm run build-storybook --workspaces --if-present   # every Storybook in the monorepo
+          - npm run build-storybook --workspaces --if-present -- --stats-json   # --stats-json is only needed for onlyChanged
           - npx lookout run       # until @lookout/cli is published: node <path-to-lookout>/packages/cli/src/main.ts run
         # LOOKOUT_SERVER and LOOKOUT_TOKEN are repository variables
 
@@ -27,6 +27,8 @@ pipelines:
     main:
       - step: *visual-tests      # becomes the new baseline
 ```
+
+If you use `onlyChanged`, Lookout diffs against the commit of the last build, so the clone needs that history. Add `clone: { depth: full }` at the top of the file (or fetch enough history); if the commit is missing, Lookout captures everything and says why.
 
 The CLI reads `BITBUCKET_BRANCH`, `BITBUCKET_COMMIT`, `BITBUCKET_PR_ID` and `BITBUCKET_PR_DESTINATION_BRANCH` automatically. Add `--exit-code` if you also want the pipeline itself to go red while changes are unreviewed (usually not needed: the statuses already do that).
 

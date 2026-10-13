@@ -45,6 +45,7 @@ export interface SnapshotRow {
   decided_at: string | null;
   error: string | null;
   diff_threshold: number | null;
+  inherited: number;
 }
 
 export interface CreateBuildInput {
@@ -130,6 +131,46 @@ export class Lookout {
         buildId, meta.storyId, meta.title, meta.name, meta.mode, hash,
         meta.error ? 'error' : 'new', meta.error ?? null, meta.diffThreshold ?? null,
       );
+  }
+
+  /**
+   * The build to diff against for onlyChanged: the branch's latest finished build, or the
+   * base branch's when the branch has none yet.
+   */
+  lastBuild(project: string, branch: string, baseBranch: string) {
+    const find = (b: string) =>
+      this.db
+        .prepare(`SELECT * FROM builds WHERE project = ? AND branch = ? AND status = 'done' ORDER BY id DESC LIMIT 1`)
+        .get(project, b) as unknown as BuildRow | undefined;
+    const build = (branch !== baseBranch && find(branch)) || find(baseBranch);
+    if (!build) return { build: null, snapshots: [] };
+    const snapshots = this.db
+      .prepare('SELECT story_id AS storyId, mode, state FROM snapshots WHERE build_id = ?')
+      .all(build.id);
+    return { build: { id: build.id, commit: build.commit_sha, branch: build.branch }, snapshots };
+  }
+
+  /** Copy snapshots that weren't re-captured from an earlier build of the same project. */
+  inheritSnapshots(buildId: number, fromBuildId: number, keys: Array<{ storyId: string; mode: string }>) {
+    const build = this.getBuild(buildId);
+    const from = this.getBuild(fromBuildId);
+    if (!build || !from) throw new HttpError(404, 'build not found');
+    if (from.project !== build.project) throw new HttpError(400, 'can only inherit from the same project');
+    const get = this.db.prepare(
+      `SELECT * FROM snapshots WHERE build_id = ? AND story_id = ? AND mode = ? AND state != 'error'`,
+    );
+    const insert = this.db.prepare(
+      `INSERT OR IGNORE INTO snapshots (build_id, story_id, title, name, mode, hash, state, diff_threshold, inherited)
+       VALUES (?, ?, ?, ?, ?, ?, 'new', ?, 1)`,
+    );
+    let copied = 0;
+    for (const k of keys) {
+      const s = get.get(fromBuildId, k.storyId, k.mode) as unknown as SnapshotRow | undefined;
+      if (!s) continue;
+      insert.run(buildId, s.story_id, s.title, s.name, s.mode, s.hash, s.diff_threshold);
+      copied++;
+    }
+    return copied;
   }
 
   private baseline(project: string, branch: string, storyId: string, mode: string) {
@@ -221,8 +262,11 @@ export class Lookout {
       .all(buildId) as Array<{ state: SnapshotState; n: number }>;
     const counts: Record<string, number> = {};
     for (const r of rows) counts[r.state] = r.n;
+    const { n: inherited } = this.db
+      .prepare('SELECT COUNT(*) AS n FROM snapshots WHERE build_id = ? AND inherited = 1')
+      .get(buildId) as { n: number };
     const build = this.getBuild(buildId)!;
-    return { buildId, project: build.project, counts, url: this.reviewUrl(build.review_key) };
+    return { buildId, project: build.project, counts, inherited, url: this.reviewUrl(build.review_key) };
   }
 
   reviewUrl(key: string) {
@@ -445,6 +489,7 @@ export class Lookout {
         diffPixels: s.diff_pixels,
         decidedBy: s.decided_by,
         error: s.error,
+        inherited: !!s.inherited,
       })),
       approval: key.startsWith('pr-') ? this.approval(key, builds) : null,
       statuses: this.computeStatuses(key)?.statuses ?? [],

@@ -28,12 +28,44 @@ export function writeFakeStorybook(dir: string, opts: { project: 'design-system'
           },
         };
 
+  // Story file each story lives in, and what it imports, for preview-stats.json.
+  const files: Record<string, { file: string; imports: string[] }> =
+    opts.project === 'design-system'
+      ? {
+          'components-button--primary': { file: './src/Button.stories.jsx', imports: ['./src/Button.jsx'] },
+          'components-button--secondary': { file: './src/Button.stories.jsx', imports: ['./src/Button.jsx'] },
+          'components-textfield--default': { file: './src/TextField.stories.jsx', imports: ['./src/TextField.jsx'] },
+          'components-spinner--default': { file: './src/Spinner.stories.jsx', imports: ['./src/Spinner.jsx'] },
+        }
+      : {
+          // The app imports the design system from source, as in a monorepo workspace.
+          'checkout-summary--default': { file: './src/Summary.stories.jsx', imports: ['../../packages/ui/src/Button.jsx'] },
+          'checkout-address--default': { file: './src/Address.stories.jsx', imports: ['../../packages/ui/src/TextField.jsx'] },
+        };
+
   const index = {
     v: 5,
     entries: Object.fromEntries(
-      Object.entries(stories).map(([id, s]) => [id, { id, title: s.title, name: s.name, type: 'story', importPath: './x.stories.tsx' }]),
+      Object.entries(stories).map(([id, s]) => [id, { id, title: s.title, name: s.name, type: 'story', importPath: files[id].file }]),
     ),
   };
+  const modules = new Map<string, Set<string>>();
+  const add = (name: string, by: string) => {
+    if (!modules.has(name)) modules.set(name, new Set());
+    modules.get(name)!.add(by);
+  };
+  add('./.storybook/preview.jsx', '/virtual:/@storybook/builder-vite/vite-app.js');
+  add('./src/tokens.css', './.storybook/preview.jsx');
+  for (const { file, imports } of Object.values(files)) {
+    add(file, '/virtual:/@storybook/builder-vite/storybook-stories.js');
+    for (const dep of imports) add(dep, file);
+  }
+  writeFileSync(
+    join(dir, 'preview-stats.json'),
+    JSON.stringify({
+      modules: [...modules].map(([name, by]) => ({ id: name, name, reasons: [...by].map(moduleName => ({ moduleName })) })),
+    }),
+  );
   index.entries['components-button--docs' as keyof typeof index.entries] = { id: 'components-button--docs', title: 'Components/Button', name: 'Docs', type: 'docs', importPath: './x.mdx' } as any;
   writeFileSync(join(dir, 'index.json'), JSON.stringify(index));
 
